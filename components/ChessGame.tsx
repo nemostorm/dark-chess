@@ -62,7 +62,6 @@ export default function ChessGame() {
         return result ? gameCopy : prevGame;
       });
     }
-<<<<<<< HEAD
   }, []);
 
   useEffect(() => {
@@ -172,9 +171,6 @@ export default function ChessGame() {
         </button>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <button className="px-4 py-2 bg-white text-black rounded hover:bg-gray-200">
-              Difficulty: {difficulty === 5 ? 'Easy' : difficulty === 10 ? 'Medium' : difficulty === 15 ? 'Hard' : 'Expert'}
-            </button>
           </DropdownMenuTrigger>
           <DropdownMenuContent>
             <DropdownMenuItem onClick={() => updateDifficulty(5)}>Easy</DropdownMenuItem>
@@ -183,14 +179,6 @@ export default function ChessGame() {
             <DropdownMenuItem onClick={() => updateDifficulty(20)}>Expert</DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
-      </div>
-      <div className="flex items-center gap-2">
-        <label htmlFor="assistance" className="text-white">Show Legal Moves</label>
-        <Switch
-          id="assistance"
-          checked={assistance}
-          onCheckedChange={setAssistance}
-        />
       </div>
       <div className="text-center">
         <p>Turn: {game.turn() === 'w' ? 'White' : 'Black'}</p>
