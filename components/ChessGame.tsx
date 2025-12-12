@@ -17,6 +17,7 @@ export default function ChessGame() {
   const [difficulty, setDifficulty] = useState(10);
   const [assistance, setAssistance] = useState(false);
   const [gameHistory, setGameHistory] = useState<Chess[]>([new Chess()]);
+  const [stockfishReady, setStockfishReady] = useState(false);
   const [selectedSquare, setSelectedSquare] = useState<Square | null>(null);
   const stockfishRef = useRef<Worker | null>(null);
 
@@ -49,7 +50,7 @@ export default function ChessGame() {
 
   const updateDifficulty = (newDifficulty: number) => {
     setDifficulty(newDifficulty);
-    if (stockfishRef.current) {
+    if (stockfishRef.current && stockfishReady) {
       const skillLevel = getSkillLevel(newDifficulty);
       stockfishRef.current.postMessage(`setoption name Skill Level value ${skillLevel}`);
     }
@@ -59,7 +60,16 @@ export default function ChessGame() {
     const message = event.data as string;
     console.log('Stockfish:', message);
 
-    if (message.includes('bestmove')) {
+    if (message.includes('uciok')) {
+      console.log('Stockfish UCI ready');
+      stockfishRef.current?.postMessage('isready');
+    } else if (message.includes('readyok')) {
+      console.log('Stockfish ready');
+      setStockfishReady(true);
+      // Set initial skill level
+      const initialSkill = getSkillLevel(difficulty);
+      stockfishRef.current?.postMessage(`setoption name Skill Level value ${initialSkill}`);
+    } else if (message.includes('bestmove')) {
       const bestMove = message.split(' ')[1];
       const gameCopy = new Chess(game.fen());
       const from = bestMove.slice(0, 2);
@@ -70,19 +80,22 @@ export default function ChessGame() {
         updateGame(gameCopy);
       }
     }
-  }, [game]);
+  }, [game, difficulty]);
 
   useEffect(() => {
     // Initialize Stockfish Worker
-    stockfishRef.current = new Worker('/stockfish/stockfish-17.1-lite-single-03e3232.js');
-    stockfishRef.current.addEventListener('message', onStockfishMessage);
+    try {
+      stockfishRef.current = new Worker('/stockfish/stockfish-17.1-lite-single-03e3232.js');
+      stockfishRef.current.addEventListener('message', onStockfishMessage);
+      stockfishRef.current.addEventListener('error', (error) => {
+        console.error('Stockfish worker error:', error);
+      });
 
-    // Set up Stockfish
-    stockfishRef.current.postMessage('uci');
-    stockfishRef.current.postMessage('isready');
-    // Set initial skill level
-    const initialSkill = getSkillLevel(difficulty);
-    stockfishRef.current.postMessage(`setoption name Skill Level value ${initialSkill}`);
+      // Set up Stockfish
+      stockfishRef.current.postMessage('uci');
+    } catch (error) {
+      console.error('Failed to create Stockfish worker:', error);
+    }
 
     return () => {
       if (stockfishRef.current) {
@@ -90,7 +103,7 @@ export default function ChessGame() {
         stockfishRef.current.terminate();
       }
     };
-  }, [onStockfishMessage, difficulty]);
+  }, [onStockfishMessage]);
 
   const onDrop = ({ sourceSquare, targetSquare }: PieceDropHandlerArgs) => {
     if (!targetSquare || sourceSquare === targetSquare) return false;
@@ -107,7 +120,7 @@ export default function ChessGame() {
     updateGame(gameCopy);
 
     // If it's not checkmate or stalemate, let Stockfish make a move
-    if (!gameCopy.isGameOver()) {
+    if (!gameCopy.isGameOver() && stockfishReady) {
       // Send position to Stockfish
       stockfishRef.current?.postMessage(`position fen ${gameCopy.fen()}`);
       stockfishRef.current?.postMessage('go depth 15'); // fixed depth, skill level controls strength
@@ -167,26 +180,26 @@ export default function ChessGame() {
       <div className="flex gap-2">
         <button
           onClick={resetGame}
-          className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+          className="px-4 py-2 bg-white text-black rounded hover:bg-gray-200"
         >
           New Game
         </button>
         <button
           onClick={undoMove}
           disabled={gameHistory.length <= 1}
-          className="px-4 py-2 bg-yellow-500 text-white rounded hover:bg-yellow-600 disabled:opacity-50 disabled:cursor-not-allowed"
+          className="px-4 py-2 bg-white text-black rounded hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed"
         >
           Undo Move
         </button>
         <button
           onClick={flipBoard}
-          className="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600"
+          className="px-4 py-2 bg-white text-black rounded hover:bg-gray-200"
         >
           Flip Board
         </button>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <button className="px-4 py-2 bg-purple-500 text-white rounded hover:bg-purple-600">
+            <button className="px-4 py-2 bg-white text-black rounded hover:bg-gray-200">
               Difficulty: {difficulty === 5 ? 'Easy' : difficulty === 10 ? 'Medium' : difficulty === 15 ? 'Hard' : 'Expert'}
             </button>
           </DropdownMenuTrigger>
