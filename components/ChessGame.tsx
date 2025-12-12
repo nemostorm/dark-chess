@@ -16,6 +16,7 @@ export default function ChessGame() {
   const [boardOrientation, setBoardOrientation] = useState<'white' | 'black'>('white');
   const [difficulty, setDifficulty] = useState(10);
   const [assistance, setAssistance] = useState(false);
+  const [gameHistory, setGameHistory] = useState<Chess[]>([new Chess()]);
   const [selectedSquare, setSelectedSquare] = useState<Square | null>(null);
   const stockfishRef = useRef<Worker | null>(null);
 
@@ -26,6 +27,23 @@ export default function ChessGame() {
       case 15: return 15; // Hard
       case 20: return 20; // Expert
       default: return 10;
+    }
+  };
+
+  const updateGame = (newGame: Chess) => {
+    setGame(newGame);
+    setGameHistory(prev => [...prev, new Chess(newGame.fen())]);
+    setSelectedSquare(null);
+  };
+
+  const undoMove = () => {
+    if (gameHistory.length > 1) {
+      const newHistory = [...gameHistory];
+      newHistory.pop(); // remove current state
+      const previousGame = newHistory[newHistory.length - 1];
+      setGame(new Chess(previousGame.fen()));
+      setGameHistory(newHistory);
+      setSelectedSquare(null);
     }
   };
 
@@ -43,16 +61,16 @@ export default function ChessGame() {
 
     if (message.includes('bestmove')) {
       const bestMove = message.split(' ')[1];
-      setGame(prevGame => {
-        const gameCopy = new Chess(prevGame.fen());
-        const from = bestMove.slice(0, 2);
-        const to = bestMove.slice(2, 4);
-        const promotion = bestMove.length > 4 ? bestMove[4] : undefined;
-        const result = gameCopy.move({ from, to, promotion });
-        return result ? gameCopy : prevGame;
-      });
+      const gameCopy = new Chess(game.fen());
+      const from = bestMove.slice(0, 2);
+      const to = bestMove.slice(2, 4);
+      const promotion = bestMove.length > 4 ? bestMove[4] : undefined;
+      const result = gameCopy.move({ from, to, promotion });
+      if (result) {
+        updateGame(gameCopy);
+      }
     }
-  }, []);
+  }, [game]);
 
   useEffect(() => {
     // Initialize Stockfish Worker
@@ -86,8 +104,7 @@ export default function ChessGame() {
 
     if (move === null) return false; // illegal move
 
-    setGame(gameCopy);
-    setSelectedSquare(null); // clear selection after move
+    updateGame(gameCopy);
 
     // If it's not checkmate or stalemate, let Stockfish make a move
     if (!gameCopy.isGameOver()) {
@@ -122,7 +139,10 @@ export default function ChessGame() {
   };
 
   const resetGame = () => {
-    setGame(new Chess());
+    const newGame = new Chess();
+    setGame(newGame);
+    setGameHistory([new Chess()]);
+    setSelectedSquare(null);
   };
 
   const flipBoard = () => {
@@ -150,6 +170,13 @@ export default function ChessGame() {
           className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
         >
           New Game
+        </button>
+        <button
+          onClick={undoMove}
+          disabled={gameHistory.length <= 1}
+          className="px-4 py-2 bg-yellow-500 text-white rounded hover:bg-yellow-600 disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          Undo Move
         </button>
         <button
           onClick={flipBoard}
