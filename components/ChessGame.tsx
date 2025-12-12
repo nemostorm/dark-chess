@@ -19,6 +19,24 @@ export default function ChessGame() {
   const [selectedSquare, setSelectedSquare] = useState<Square | null>(null);
   const stockfishRef = useRef<Worker | null>(null);
 
+  const getSkillLevel = (depth: number) => {
+    switch (depth) {
+      case 5: return 2;  // Easy
+      case 10: return 10; // Medium
+      case 15: return 15; // Hard
+      case 20: return 20; // Expert
+      default: return 10;
+    }
+  };
+
+  const updateDifficulty = (newDifficulty: number) => {
+    setDifficulty(newDifficulty);
+    if (stockfishRef.current) {
+      const skillLevel = getSkillLevel(newDifficulty);
+      stockfishRef.current.postMessage(`setoption name Skill Level value ${skillLevel}`);
+    }
+  };
+
   const onStockfishMessage = useCallback((event: MessageEvent) => {
     const message = event.data as string;
     console.log('Stockfish:', message);
@@ -44,6 +62,9 @@ export default function ChessGame() {
     // Set up Stockfish
     stockfishRef.current.postMessage('uci');
     stockfishRef.current.postMessage('isready');
+    // Set initial skill level
+    const initialSkill = getSkillLevel(difficulty);
+    stockfishRef.current.postMessage(`setoption name Skill Level value ${initialSkill}`);
 
     return () => {
       if (stockfishRef.current) {
@@ -51,7 +72,7 @@ export default function ChessGame() {
         stockfishRef.current.terminate();
       }
     };
-  }, [onStockfishMessage]);
+  }, [onStockfishMessage, difficulty]);
 
   const onDrop = ({ sourceSquare, targetSquare }: PieceDropHandlerArgs) => {
     if (!targetSquare || sourceSquare === targetSquare) return false;
@@ -72,7 +93,7 @@ export default function ChessGame() {
     if (!gameCopy.isGameOver()) {
       // Send position to Stockfish
       stockfishRef.current?.postMessage(`position fen ${gameCopy.fen()}`);
-      stockfishRef.current?.postMessage('go depth ' + difficulty); // think based on difficulty
+      stockfishRef.current?.postMessage('go depth 15'); // fixed depth, skill level controls strength
     }
 
     return true;
@@ -143,10 +164,10 @@ export default function ChessGame() {
             </button>
           </DropdownMenuTrigger>
           <DropdownMenuContent>
-            <DropdownMenuItem onClick={() => setDifficulty(5)}>Easy</DropdownMenuItem>
-            <DropdownMenuItem onClick={() => setDifficulty(10)}>Medium</DropdownMenuItem>
-            <DropdownMenuItem onClick={() => setDifficulty(15)}>Hard</DropdownMenuItem>
-            <DropdownMenuItem onClick={() => setDifficulty(20)}>Expert</DropdownMenuItem>
+            <DropdownMenuItem onClick={() => updateDifficulty(5)}>Easy</DropdownMenuItem>
+            <DropdownMenuItem onClick={() => updateDifficulty(10)}>Medium</DropdownMenuItem>
+            <DropdownMenuItem onClick={() => updateDifficulty(15)}>Hard</DropdownMenuItem>
+            <DropdownMenuItem onClick={() => updateDifficulty(20)}>Expert</DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
